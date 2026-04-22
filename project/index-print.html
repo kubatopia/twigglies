@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Twigglies — Tiny Twigs. Big Smiles.</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #FDFAF5; color: #2C2416; overflow-x: hidden; }
+  :root {
+    --cream: #FDFAF5;
+    --beige: #F5EFE0;
+    --sage: #5C8A62;
+    --sage-light: #E8F0E9;
+    --sage-mid: #A8C9AD;
+    --sky: #B8D8E8;
+    --sky-light: #EAF4F9;
+    --coral: #E8715A;
+    --coral-light: #FCEAE6;
+    --yellow: #F5D97A;
+    --brown: #2C2416;
+    --brown-mid: #6B5B3E;
+    --brown-light: #A08060;
+    --radius-sm: 12px;
+    --radius-md: 20px;
+    --radius-lg: 32px;
+    --radius-xl: 48px;
+  }
+
+  /* Tweaks panel */
+  #tweaks-panel {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: white; border-radius: 20px; padding: 20px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    width: 260px; display: none; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+  }
+  #tweaks-panel.open { display: block; }
+  #tweaks-panel h3 { font-family: 'Fredoka', sans-serif; font-size: 18px; margin-bottom: 16px; color: var(--sage); }
+  .tweak-row { margin-bottom: 14px; }
+  .tweak-row label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--brown); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tweak-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 5px 12px; border-radius: 100px; border: 2px solid transparent; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+  .chip.active { border-color: var(--sage); }
+  .tweak-toggle { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+  .toggle-track { width: 40px; height: 22px; border-radius: 11px; background: #ddd; position: relative; transition: background 0.2s; }
+  .toggle-track.on { background: var(--sage); }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform 0.2s; }
+  .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="tweaks-panel">
+  <h3>✦ Tweaks</h3>
+  <div class="tweak-row">
+    <label>Color Theme</label>
+    <div class="tweak-chips" id="theme-chips">
+      <div class="chip active" style="background:#E8F0E9;color:#5C8A62" data-theme="sage">Sage</div>
+      <div class="chip" style="background:#EAF4F9;color:#3A7FA0" data-theme="sky">Sky</div>
+      <div class="chip" style="background:#FCEAE6;color:#E8715A" data-theme="coral">Coral</div>
+      <div class="chip" style="background:#FEF8E8;color:#C4970A" data-theme="honey">Honey</div>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>Hero Layout</label>
+    <div class="tweak-chips" id="layout-chips">
+      <div class="chip active" style="background:#F5EFE0;color:#6B5B3E" data-layout="centered">Centered</div>
+      <div class="chip" style="background:#F5EFE0;color:#6B5B3E" data-layout="split">Split</div>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>Show Mascots</label>
+    <div class="tweak-toggle" id="mascot-toggle">
+      <div class="toggle-track on" id="mascot-track"><div class="toggle-thumb"></div></div>
+      <span>Twig characters visible</span>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>Dark Mode</label>
+    <div class="tweak-toggle" id="dark-toggle">
+      <div class="toggle-track" id="dark-track"><div class="toggle-thumb"></div></div>
+      <span>Dark background</span>
+    </div>
+  </div>
+</div>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "sage",
+  "layout": "centered",
+  "showMascots": true,
+  "darkMode": false
+}/*EDITMODE-END*/;
+
+const { useState, useEffect, useRef } = React;
+
+// ─── SVG Mascot Characters ───────────────────────────────────────────────────
+function TwigMascot({ color = "#5C8A62", face = "happy", size = 80, style }) {
+  const eyes = face === "happy"
+    ? <><circle cx="30" cy="36" r="3.5" fill="#2C2416"/><circle cx="50" cy="36" r="3.5" fill="#2C2416"/></>
+    : <><circle cx="30" cy="36" r="3.5" fill="#2C2416"/><circle cx="50" cy="36" r="3.5" fill="#2C2416"/></>;
+  const mouth = face === "happy"
+    ? <path d="M32 46 Q40 54 48 46" stroke="#2C2416" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+    : <path d="M32 48 Q40 44 48 48" stroke="#2C2416" strokeWidth="2.5" fill="none" strokeLinecap="round"/>;
+  return (
+    <svg width={size} height={size*1.4} viewBox="0 0 80 112" fill="none" style={style}>
+      {/* Body twig */}
+      <rect x="32" y="60" width="16" height="46" rx="8" fill={color} opacity="0.9"/>
+      {/* Arms */}
+      <rect x="10" y="68" width="24" height="10" rx="5" fill={color} opacity="0.75" transform="rotate(-15 10 68)"/>
+      <rect x="46" y="68" width="24" height="10" rx="5" fill={color} opacity="0.75" transform="rotate(15 70 68)"/>
+      {/* Head */}
+      <ellipse cx="40" cy="32" rx="24" ry="26" fill={color}/>
+      {/* Cheeks */}
+      <ellipse cx="22" cy="42" rx="7" ry="5" fill="white" opacity="0.3"/>
+      <ellipse cx="58" cy="42" rx="7" ry="5" fill="white" opacity="0.3"/>
+      {eyes}
+      {mouth}
+      {/* Leaf on top */}
+      <ellipse cx="40" cy="8" rx="8" ry="12" fill={color} opacity="0.6" transform="rotate(-10 40 8)"/>
+      <ellipse cx="52" cy="5" rx="6" ry="9" fill={color} opacity="0.4" transform="rotate(20 52 5)"/>
+    </svg>
+  );
+}
+
+// ─── Placeholder image ────────────────────────────────────────────────────────
+function Placeholder({ w, h, label, bg = "#E8F0E9", color = "#5C8A62", radius = 20 }) {
+  return (
+    <div style={{
+      width: w, height: h, borderRadius: radius,
+      background: bg, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 8,
+      flexShrink: 0, overflow: 'hidden', position: 'relative'
+    }}>
+      <svg width="100%" height="100%" style={{position:'absolute',top:0,left:0}} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`stripe-${label}`} patternUnits="userSpaceOnUse" width="20" height="20" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="20" stroke={color} strokeWidth="1" opacity="0.15"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#stripe-${label})`}/>
+      </svg>
+      <span style={{fontFamily:'monospace', fontSize:11, color, textAlign:'center', padding:'0 12px', position:'relative', zIndex:1, lineHeight:1.4}}>{label}</span>
+    </div>
+  );
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function Nav({ darkMode }) {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', fn);
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+
+  const bg = darkMode ? '#1A1408' : scrolled ? 'rgba(253,250,245,0.96)' : 'transparent';
+  const borderColor = darkMode ? 'rgba(255,255,255,0.08)' : scrolled ? 'rgba(92,138,98,0.12)' : 'transparent';
+
+  return (
+    <nav style={{
+      position:'fixed', top:0, left:0, right:0, zIndex:1000,
+      background: bg,
+      backdropFilter: scrolled ? 'blur(20px)' : 'none',
+      borderBottom: `1px solid ${borderColor}`,
+      transition: 'all 0.3s',
+      padding: '0 24px'
+    }}>
+      <div style={{
+        maxWidth:1100, margin:'0 auto', display:'flex',
+        alignItems:'center', justifyContent:'space-between',
+        height:64
+      }}>
+        {/* Logo */}
+        <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+          <div style={{
+            width:32, height:32, borderRadius:10,
+            background:'var(--sage)', display:'flex', alignItems:'center', justifyContent:'center'
+          }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="7" y="2" width="4" height="14" rx="2" fill="white"/>
+              <ellipse cx="9" cy="4" rx="4" ry="5" fill="white" opacity="0.7"/>
+              <ellipse cx="5" cy="7" rx="3" ry="4" fill="white" opacity="0.5" transform="rotate(-20 5 7)"/>
+              <ellipse cx="13" cy="7" rx="3" ry="4" fill="white" opacity="0.5" transform="rotate(20 13 7)"/>
+            </svg>
+          </div>
+          <span style={{fontFamily:'Fredoka',fontWeight:600,fontSize:22,color: darkMode?'white':'var(--brown)',letterSpacing:'-0.01em'}}>
+            twigglies
+          </span>
+        </div>
+
+        {/* Desktop links */}
+        <div style={{display:'flex',alignItems:'center',gap:32,color: darkMode?'rgba(255,255,255,0.75)':'var(--brown-mid)',fontSize:14,fontWeight:500}}>
+          {['Products','Why Miswak','Reviews','FAQ'].map(l => (
+            <a key={l} href={`#${l.toLowerCase().replace(' ','-')}`} style={{textDecoration:'none',color:'inherit',transition:'color 0.2s'}}
+              onMouseEnter={e=>e.target.style.color='var(--sage)'}
+              onMouseLeave={e=>e.target.style.color=''}>
+              {l}
+            </a>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <a href="#subscribe" style={{textDecoration:'none'}}>
+            <button style={{
+              background:'var(--sage)', color:'white',
+              border:'none', borderRadius:100, padding:'10px 22px',
+              fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:14,
+              cursor:'pointer', transition:'all 0.2s',
+              boxShadow:'0 2px 12px rgba(92,138,98,0.35)'
+            }}
+              onMouseEnter={e=>{ e.target.style.transform='translateY(-1px)'; e.target.style.boxShadow='0 4px 20px rgba(92,138,98,0.45)'; }}
+              onMouseLeave={e=>{ e.target.style.transform=''; e.target.style.boxShadow='0 2px 12px rgba(92,138,98,0.35)'; }}>
+              Shop Now
+            </button>
+          </a>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// ─── HERO ─────────────────────────────────────────────────────────────────────
+function Hero({ theme, layout, showMascots, darkMode }) {
+  const accentColors = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' };
+  const accent = accentColors[theme];
+  const bgMap = {
+    sage: darkMode ? '#1A1408' : 'linear-gradient(160deg, #FDFAF5 0%, #EDF5EE 60%, #FDFAF5 100%)',
+    sky: darkMode ? '#081420' : 'linear-gradient(160deg, #FDFAF5 0%, #E6F2F8 60%, #FDFAF5 100%)',
+    coral: darkMode ? '#1A0B08' : 'linear-gradient(160deg, #FDFAF5 0%, #FCEAE6 60%, #FDFAF5 100%)',
+    honey: darkMode ? '#1A1208' : 'linear-gradient(160deg, #FDFAF5 0%, #FEF6D8 60%, #FDFAF5 100%)',
+  };
+
+  const mascotColors = ['#5C8A62','#E8715A','#3A7FA0','#F5C842'];
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.65)' : 'var(--brown-mid)';
+
+  return (
+    <section style={{
+      minHeight:'100vh',
+      background: bgMap[theme],
+      display:'flex', alignItems:'center', justifyContent:'center',
+      padding: '100px 24px 60px',
+      position:'relative', overflow:'hidden'
+    }}>
+      {/* Floating blobs */}
+      <div style={{position:'absolute',top:'15%',left:'5%',width:300,height:300,borderRadius:'50%',
+        background: accent, opacity:0.06, filter:'blur(60px)', pointerEvents:'none'}}/>
+      <div style={{position:'absolute',bottom:'10%',right:'8%',width:250,height:250,borderRadius:'50%',
+        background:'#E8715A', opacity:0.06, filter:'blur(50px)', pointerEvents:'none'}}/>
+
+      <div style={{
+        maxWidth:1100, width:'100%',
+        display:'flex', flexDirection: layout==='split' ? 'row' : 'column',
+        alignItems:'center', justifyContent:'center',
+        gap: layout==='split' ? 60 : 40,
+        textAlign: layout==='split' ? 'left' : 'center'
+      }}>
+        {/* Text */}
+        <div style={{flex:1, maxWidth: layout==='split'? 520 : 680}}>
+          {/* Badge */}
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:8,
+            background: darkMode ? 'rgba(255,255,255,0.1)' : 'white',
+            borderRadius:100, padding:'8px 16px', marginBottom:28,
+            border:`1px solid ${accent}30`,
+            fontSize:13, fontWeight:600, color: accent,
+            boxShadow:'0 2px 12px rgba(0,0,0,0.06)'
+          }}>
+            <span>🌿</span>
+            <span>Dentist-Loved · Naturally Clean · Kids Adore Them</span>
+          </div>
+
+          <h1 style={{
+            fontFamily:'Fredoka', fontWeight:700,
+            fontSize: 'clamp(48px,7vw,86px)',
+            lineHeight:1.05, color: textColor,
+            letterSpacing:'-0.02em', marginBottom:24
+          }}>
+            Tiny Twigs.<br/>
+            <span style={{color: accent}}>Big Smiles.</span>
+          </h1>
+
+          <p style={{
+            fontSize:'clamp(16px,2vw,20px)', color: subColor,
+            lineHeight:1.65, maxWidth:480,
+            margin: layout==='centered' ? '0 auto 36px' : '0 0 36px',
+            fontWeight:400
+          }}>
+            Natural miswak chew sticks that help make healthy mouths fun — 
+            for little ones ages 1–8. No brushing drama required.
+          </p>
+
+          <div style={{display:'flex', gap:14, flexWrap:'wrap', justifyContent: layout==='centered'?'center':'flex-start'}}>
+            <button style={{
+              background: accent, color:'white', border:'none',
+              borderRadius:100, padding:'16px 32px',
+              fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:16,
+              cursor:'pointer', transition:'all 0.2s',
+              boxShadow:`0 4px 24px ${accent}50`
+            }}
+              onMouseEnter={e=>{ e.target.style.transform='translateY(-2px)'; e.target.style.boxShadow=`0 8px 32px ${accent}60`; }}
+              onMouseLeave={e=>{ e.target.style.transform=''; e.target.style.boxShadow=`0 4px 24px ${accent}50`; }}>
+              Shop Twigglies →
+            </button>
+            <button style={{
+              background:'transparent', color: textColor,
+              border:`2px solid ${darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(44,36,22,0.15)'}`,
+              borderRadius:100, padding:'16px 28px',
+              fontFamily:'Plus Jakarta Sans', fontWeight:600, fontSize:16,
+              cursor:'pointer', transition:'all 0.2s'
+            }}
+              onMouseEnter={e=>{ e.target.style.borderColor = accent; e.target.style.color = accent; }}
+              onMouseLeave={e=>{ e.target.style.borderColor=''; e.target.style.color=''; }}>
+              Watch How It Works
+            </button>
+          </div>
+
+          {/* Social proof strip */}
+          <div style={{
+            display:'flex', alignItems:'center', gap:20, marginTop:40,
+            justifyContent: layout==='centered' ? 'center' : 'flex-start',
+            flexWrap:'wrap'
+          }}>
+            {[
+              { n:'12,000+', l:'Happy Families' },
+              { n:'4.9★', l:'Avg Rating' },
+              { n:'92%', l:'Would Reorder' }
+            ].map(({n,l}) => (
+              <div key={l} style={{textAlign: layout==='centered' ? 'center' : 'left'}}>
+                <div style={{fontFamily:'Fredoka', fontWeight:700, fontSize:22, color: accent}}>{n}</div>
+                <div style={{fontSize:12, color: subColor, fontWeight:500}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Visual */}
+        <div style={{
+          flex: layout==='split' ? '0 0 420px' : 'none',
+          position:'relative', display:'flex', alignItems:'center', justifyContent:'center'
+        }}>
+          {/* Product hero */}
+          <div style={{
+            width: layout==='split' ? 380 : 320, height: layout==='split' ? 380 : 320,
+            borderRadius: layout==='split' ? 48 : 160,
+            background: darkMode ? 'rgba(255,255,255,0.07)' : 'white',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:'0 20px 80px rgba(0,0,0,0.10)',
+            position:'relative', overflow:'hidden'
+          }}>
+            <Placeholder w="100%" h="100%" label="hero product photo\nTwigglies Original tube" bg={darkMode?'#2A2418':'#F5EFE0'} color="#8B7355" radius={layout==='split'?48:160}/>
+            {showMascots && (
+              <div style={{position:'absolute', bottom:-10, right:-10}}>
+                <TwigMascot color={accent} size={90} style={{filter:`drop-shadow(0 4px 12px ${accent}40)`}}/>
+              </div>
+            )}
+          </div>
+
+          {/* Floating tags */}
+          {[
+            { text:'Natural Miswak Root', icon:'🌿', top:'8%', right:'-8%', bg: darkMode?'rgba(255,255,255,0.12)':'white' },
+            { text:'Kids Love It', icon:'💚', bottom:'12%', left:'-10%', bg: darkMode?'rgba(255,255,255,0.12)':'white' },
+            { text:'Dentist Trusted', icon:'🦷', top:'60%', right:'-12%', bg: darkMode?'rgba(255,255,255,0.12)':'white' },
+          ].map(({text,icon,bg,...pos}) => (
+            <div key={text} style={{
+              position:'absolute', ...pos,
+              background: bg,
+              borderRadius:100, padding:'8px 16px',
+              display:'flex', alignItems:'center', gap:6,
+              fontSize:12, fontWeight:700, color: darkMode?'white':'var(--brown)',
+              boxShadow:'0 4px 20px rgba(0,0,0,0.10)',
+              border:`1px solid ${accent}20`, whiteSpace:'nowrap',
+              animation:'floatBadge 3s ease-in-out infinite'
+            }}>
+              <span>{icon}</span><span>{text}</span>
+            </div>
+          ))}
+
+          {/* Mascot row */}
+          {showMascots && (
+            <div style={{
+              position:'absolute', bottom:'-30px', left:'50%',
+              transform:'translateX(-50%)',
+              display:'flex', gap:0
+            }}>
+              {mascotColors.slice(1).map((c,i) => (
+                <TwigMascot key={i} color={c} size={48} style={{
+                  marginLeft: i===0?0:-10,
+                  filter:`drop-shadow(0 2px 8px ${c}40)`,
+                  transform:`rotate(${(i-1)*8}deg)`
+                }}/>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Scroll cue */}
+      <div style={{
+        position:'absolute', bottom:32, left:'50%', transform:'translateX(-50%)',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+        opacity:0.4, fontSize:12, color: textColor, fontWeight:500
+      }}>
+        <span>Scroll to explore</span>
+        <div style={{width:1.5, height:30, background: textColor, borderRadius:2, animation:'scrollCue 1.5s ease-in-out infinite'}}/>
+      </div>
+    </section>
+  );
+}
+
+// ─── TRUST BAR ────────────────────────────────────────────────────────────────
+function TrustBar({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const items = [
+    '🦷 Pediatric Dentist Recommended',
+    '🌿 100% Natural Ingredients',
+    '🧪 No Artificial Sweeteners',
+    '✓ Safe for Ages 1–8',
+    '♻️ Sustainably Sourced',
+    '🏆 Parent Choice Award 2024',
+  ];
+  return (
+    <div style={{
+      background: accent, overflow:'hidden', padding:'14px 0',
+      position:'relative'
+    }}>
+      <div style={{
+        display:'flex', gap:48, animation:'ticker 30s linear infinite',
+        whiteSpace:'nowrap', width:'max-content'
+      }}>
+        {[...items,...items,...items].map((item,i) => (
+          <span key={i} style={{
+            color:'white', fontSize:13, fontWeight:600,
+            letterSpacing:'0.02em', display:'flex', alignItems:'center', gap:8
+          }}>
+            {item}
+            <span style={{opacity:0.4, marginLeft:16}}>✦</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── WHY PARENTS LOVE ─────────────────────────────────────────────────────────
+function WhyParents({ theme, showMascots, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#1A1408' : 'var(--cream)';
+  const cardBg = darkMode ? 'rgba(255,255,255,0.06)' : 'white';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+
+  const cards = [
+    {
+      icon: '🌱',
+      color: '#5C8A62',
+      bg: '#E8F0E9',
+      title: 'Completely Natural',
+      desc: 'Made from sustainably sourced Salvadora persica root — the same plant used for oral hygiene across cultures for thousands of years. No chemicals, no synthetics.'
+    },
+    {
+      icon: '😊',
+      color: '#E8715A',
+      bg: '#FCEAE6',
+      title: 'Kids Ask For It',
+      desc: 'Four yummy natural flavors make Twigglies the oral care routine kids actually request. Turn brushing battles into bonding moments.'
+    },
+    {
+      icon: '🦷',
+      color: '#3A7FA0',
+      bg: '#EAF4F9',
+      title: 'Dentist Approved',
+      desc: 'Formulated with input from pediatric dentists and oral health specialists. A trusted daily complement to brushing — not a replacement.'
+    },
+    {
+      icon: '🌙',
+      color: '#7B5EA7',
+      bg: '#EDE6F5',
+      title: 'Routine Builder',
+      desc: 'Designed to slot into existing routines — after meals, before bed, during car rides. Supports healthy oral sensory habits for early childhood development.'
+    },
+    {
+      icon: '🧳',
+      color: '#C4970A',
+      bg: '#FEF6D8',
+      title: 'Perfect On-the-Go',
+      desc: 'Individually wrapped, mess-free, no water needed. Toss a few in the diaper bag, lunchbox, or stroller for post-snack oral cleanup anywhere.'
+    },
+    {
+      icon: '🌍',
+      color: '#5C8A62',
+      bg: '#E8F0E9',
+      title: 'Time-Tested Science',
+      desc: 'Miswak has been studied in over 200 clinical papers. Its natural antibacterial compounds support healthy gums and fresh breath — backed by tradition and research.'
+    },
+  ];
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }}>
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:64}}>
+          <div style={{
+            display:'inline-block', background: `${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>Why Twigglies</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em', marginBottom:16}}>
+            Why Parents <span style={{color:accent}}>Love Twigglies</span>
+          </h2>
+          <p style={{fontSize:18, color: subColor, maxWidth:520, margin:'0 auto', lineHeight:1.6}}>
+            The oral care routine your pediatrician approves, your dentist recommends, and your kid actually wants.
+          </p>
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:20}}>
+          {cards.map((card,i) => (
+            <div key={i} style={{
+              background: cardBg, borderRadius:24, padding:32,
+              border:`1px solid ${darkMode?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'}`,
+              transition:'all 0.25s', cursor:'default',
+              boxShadow: darkMode?'none':'0 2px 12px rgba(0,0,0,0.04)'
+            }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow=`0 12px 40px rgba(0,0,0,0.10)`; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=darkMode?'none':'0 2px 12px rgba(0,0,0,0.04)'; }}>
+              <div style={{
+                width:52, height:52, borderRadius:16,
+                background: darkMode ? `${card.color}25` : card.bg,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:26, marginBottom:20
+              }}>
+                {card.icon}
+              </div>
+              <h3 style={{fontFamily:'Fredoka', fontSize:22, fontWeight:600, color: textColor, marginBottom:10, letterSpacing:'-0.01em'}}>
+                {card.title}
+              </h3>
+              <p style={{fontSize:14, color: subColor, lineHeight:1.65}}>
+                {card.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── HOW IT WORKS ─────────────────────────────────────────────────────────────
+function HowItWorks({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#141008' : 'var(--beige)';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+
+  const steps = [
+    { num:'01', icon:'✋', title:'Chew', color:'#5C8A62', desc:'Hand your child a Twiggly. They start chewing the tip — it\'s soft, safe, and tasty.' },
+    { num:'02', icon:'🌿', title:'Fray', color:'#E8715A', desc:'Natural chewing motion frays the tip into bristle-like fibers. Nature\'s own brush head.' },
+    { num:'03', icon:'✨', title:'Clean', color:'#3A7FA0', desc:'The miswak fibers gently sweep teeth and stimulate gums, with natural antibacterial compounds doing the work.' },
+    { num:'04', icon:'😁', title:'Smile', color:'#C4970A', desc:'End result: cleaner teeth, healthier gums, and a happy kid who\'s proud of their oral care.' },
+  ];
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="how-it-works">
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:64}}>
+          <div style={{
+            display:'inline-block', background: `${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>The Process</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em'}}>
+            How It Works
+          </h2>
+        </div>
+
+        <div style={{
+          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))',
+          gap:0, position:'relative'
+        }}>
+          {steps.map((step, i) => (
+            <div key={i} style={{
+              padding:'32px 28px', textAlign:'center', position:'relative'
+            }}>
+              {/* Connector line */}
+              {i < steps.length - 1 && (
+                <div style={{
+                  position:'absolute', top:64, right:0,
+                  width:'50%', height:2,
+                  background:`linear-gradient(90deg, ${step.color}60, transparent)`,
+                  display:'block'
+                }}/>
+              )}
+              <div style={{
+                width:72, height:72, borderRadius:24,
+                background: darkMode ? `${step.color}25` : `${step.color}15`,
+                border:`2px solid ${step.color}40`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:32, margin:'0 auto 20px',
+                position:'relative'
+              }}>
+                {step.icon}
+                <div style={{
+                  position:'absolute', top:-10, right:-10,
+                  width:28, height:28, borderRadius:50,
+                  background: step.color, color:'white',
+                  fontFamily:'Fredoka', fontSize:13, fontWeight:700,
+                  display:'flex', alignItems:'center', justifyContent:'center'
+                }}>{i+1}</div>
+              </div>
+              <h3 style={{fontFamily:'Fredoka', fontSize:28, fontWeight:700, color: step.color, marginBottom:12}}>
+                {step.title}
+              </h3>
+              <p style={{fontSize:14, color: subColor, lineHeight:1.65, maxWidth:200, margin:'0 auto'}}>
+                {step.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── WHY MISWAK ───────────────────────────────────────────────────────────────
+function WhyMiswak({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#1A1408' : 'var(--sage-light)';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.65)' : 'var(--brown-mid)';
+
+  const facts = [
+    { stat:'7,000+', label:'Years of use', sub:'Used across Africa, Asia & the Middle East' },
+    { stat:'200+', label:'Research papers', sub:'Supporting miswak\'s oral health properties' },
+    { stat:'WHO', label:'Endorsed', sub:'World Health Organization recommended for oral hygiene' },
+    { stat:'35+', label:'Beneficial compounds', sub:'Including fluoride, silica & antiseptic agents' },
+  ];
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="why-miswak">
+      <div style={{maxWidth:1100, margin:'0 auto', display:'flex', gap:80, alignItems:'center', flexWrap:'wrap'}}>
+        {/* Left */}
+        <div style={{flex:'0 0 auto', maxWidth:480}}>
+          <div style={{
+            display:'inline-block', background: `${accent}20`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:20
+          }}>Why Miswak?</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,4vw,48px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em', lineHeight:1.1, marginBottom:24}}>
+            Ancient Wisdom.<br/><span style={{color:accent}}>Modern Kids.</span>
+          </h2>
+          <p style={{fontSize:16, color: subColor, lineHeight:1.75, marginBottom:20}}>
+            The miswak chew stick comes from the root of <em>Salvadora persica</em>, a tree that's been used as a natural toothbrush for millennia across Africa, Asia, and the Middle East.
+          </p>
+          <p style={{fontSize:16, color: subColor, lineHeight:1.75, marginBottom:32}}>
+            Its natural fibers, when activated by chewing, create a gentle cleansing action. Compounds found in miswak root <strong>support healthy gums, promote fresh breath, and encourage oral hygiene habits</strong> — making it ideal for children building their first dental routines.
+          </p>
+          <div style={{
+            background: darkMode ? 'rgba(255,255,255,0.08)' : 'white',
+            borderRadius:20, padding:'20px 24px',
+            borderLeft:`4px solid ${accent}`,
+          }}>
+            <p style={{fontSize:15, color: textColor, lineHeight:1.65, fontStyle:'italic', margin:0}}>
+              "Miswak has demonstrated antimicrobial properties comparable to standard toothbrushing in multiple clinical studies. It's a remarkable natural tool."
+            </p>
+            <p style={{fontSize:12, color: subColor, marginTop:10, fontWeight:600}}>— Dr. A. Rahman, Pediatric Dental Researcher</p>
+          </div>
+        </div>
+
+        {/* Right: stats + image */}
+        <div style={{flex:1, minWidth:280}}>
+          <div style={{
+            borderRadius:32, overflow:'hidden', marginBottom:32,
+            height:260
+          }}>
+            <Placeholder w="100%" h="260px" label="editorial photo\nmiswak root / plant illustration" bg={darkMode?'#2A2418':'#D4E8D6'} color="#3D6B42" radius={32}/>
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
+            {facts.map(({stat,label,sub}) => (
+              <div key={label} style={{
+                background: darkMode ? 'rgba(255,255,255,0.07)' : 'white',
+                borderRadius:20, padding:'20px',
+                border:`1px solid ${darkMode?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'}`
+              }}>
+                <div style={{fontFamily:'Fredoka', fontSize:30, fontWeight:700, color: accent, lineHeight:1}}>{stat}</div>
+                <div style={{fontSize:13, fontWeight:700, color: textColor, margin:'4px 0 4px'}}>{label}</div>
+                <div style={{fontSize:11, color: subColor, lineHeight:1.4}}>{sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
+function Products({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#141008' : 'var(--cream)';
+  const cardBg = darkMode ? 'rgba(255,255,255,0.06)' : 'white';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+
+  const products = [
+    {
+      name:'Twigglies Original',
+      subtitle:'Ages 2–8 · 30 sticks',
+      badge:'Best Seller',
+      badgeColor:'#E8715A',
+      color:'#5C8A62',
+      bg:'#E8F0E9',
+      price:'$18',
+      flavors:['Strawberry','Banana','Watermelon','Mint-Lite'],
+      desc:'The original soft miswak chew stick. Natural flavors, sized perfectly for little mouths, individually wrapped for hygiene and on-the-go ease.',
+    },
+    {
+      name:'Teething Twigs',
+      subtitle:'Ages 6m–2y · 20 sticks',
+      badge:'New',
+      badgeColor:'#3A7FA0',
+      color:'#3A7FA0',
+      bg:'#EAF4F9',
+      price:'$16',
+      flavors:['Vanilla','Chamomile'],
+      desc:'Extra-soft, wider chew sticks designed for teething infants and toddlers. Soothes tender gums while supporting early oral hygiene.',
+    },
+    {
+      name:'Nighttime Calm',
+      subtitle:'Ages 2–8 · 30 sticks',
+      badge:'Fan Favorite',
+      badgeColor:'#7B5EA7',
+      color:'#7B5EA7',
+      bg:'#EDE6F5',
+      price:'$20',
+      flavors:['Lavender','Chamomile'],
+      desc:'Specially formulated for bedtime routines. Calming flavors help signal sleep time while supporting healthy gums after the evening meal.',
+    },
+    {
+      name:'Twigglies + Xylitol',
+      subtitle:'Ages 3–8 · 30 sticks',
+      badge:'Premium',
+      badgeColor:'#C4970A',
+      color:'#C4970A',
+      bg:'#FEF6D8',
+      price:'$22',
+      flavors:['Bubblegum','Berry'],
+      desc:'Our enhanced formula combines miswak\'s natural cleansing with xylitol — clinically shown to support healthy teeth. Twice the goodness.',
+    },
+  ];
+
+  const [selectedFlavors, setSelectedFlavors] = useState(products.map(p=>p.flavors[0]));
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="products">
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:64}}>
+          <div style={{
+            display:'inline-block', background:`${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>The Collection</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em', marginBottom:16}}>
+            Find Your <span style={{color:accent}}>Twiggly</span>
+          </h2>
+          <p style={{fontSize:18, color: subColor, maxWidth:460, margin:'0 auto'}}>
+            Something for every age, routine, and little personality.
+          </p>
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px,1fr))', gap:24}}>
+          {products.map((p,i) => (
+            <div key={i} style={{
+              background: cardBg, borderRadius:28,
+              border:`1px solid ${darkMode?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'}`,
+              overflow:'hidden', transition:'all 0.25s',
+              boxShadow: darkMode?'none':'0 2px 16px rgba(0,0,0,0.05)',
+              cursor:'default'
+            }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-6px)'; e.currentTarget.style.boxShadow=`0 20px 50px rgba(0,0,0,0.12)`; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=darkMode?'none':'0 2px 16px rgba(0,0,0,0.05)'; }}>
+
+              {/* Product image area */}
+              <div style={{position:'relative', height:200, background: darkMode ? `${p.color}15` : p.bg}}>
+                <Placeholder w="100%" h="200px" label={`product photo\n${p.name}`} bg={darkMode?`${p.color}20`:p.bg} color={p.color} radius={0}/>
+                <div style={{
+                  position:'absolute', top:16, left:16,
+                  background: p.badgeColor, color:'white',
+                  borderRadius:100, padding:'4px 12px',
+                  fontSize:11, fontWeight:700, letterSpacing:'0.03em'
+                }}>{p.badge}</div>
+              </div>
+
+              {/* Content */}
+              <div style={{padding:'24px'}}>
+                <div style={{marginBottom:4}}>
+                  <span style={{fontSize:11, color: p.color, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em'}}>{p.subtitle}</span>
+                </div>
+                <h3 style={{fontFamily:'Fredoka', fontSize:22, fontWeight:600, color: textColor, marginBottom:8, letterSpacing:'-0.01em'}}>{p.name}</h3>
+                <p style={{fontSize:13, color: subColor, lineHeight:1.6, marginBottom:16}}>{p.desc}</p>
+
+                {/* Flavor chips */}
+                <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:20}}>
+                  {p.flavors.map(f => (
+                    <button key={f} onClick={() => {
+                      const sf = [...selectedFlavors]; sf[i]=f; setSelectedFlavors(sf);
+                    }} style={{
+                      padding:'4px 12px', borderRadius:100, border:`2px solid ${selectedFlavors[i]===f ? p.color : (darkMode?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.1)')}`,
+                      background: selectedFlavors[i]===f ? `${p.color}15` : 'transparent',
+                      color: selectedFlavors[i]===f ? p.color : subColor,
+                      fontSize:11, fontWeight:700, cursor:'pointer', transition:'all 0.15s'
+                    }}>{f}</button>
+                  ))}
+                </div>
+
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                  <span style={{fontFamily:'Fredoka', fontSize:26, fontWeight:700, color: textColor}}>{p.price}</span>
+                  <button style={{
+                    background: p.color, color:'white', border:'none',
+                    borderRadius:100, padding:'10px 20px',
+                    fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
+                    cursor:'pointer', transition:'all 0.2s'
+                  }}
+                    onMouseEnter={e=>{ e.target.style.opacity='0.85'; e.target.style.transform='scale(1.04)'; }}
+                    onMouseLeave={e=>{ e.target.style.opacity=''; e.target.style.transform=''; }}>
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── TESTIMONIALS ─────────────────────────────────────────────────────────────
+function Testimonials({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#1A1408' : 'var(--beige)';
+  const cardBg = darkMode ? 'rgba(255,255,255,0.07)' : 'white';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+
+  const reviews = [
+    { name:'Sarah M.', handle:'@sarahm_mom', location:'Austin, TX', stars:5, product:'Twigglies Original', text:'My 4-year-old has been resistant to brushing FOREVER. Within two weeks of introducing Twigglies, she was asking for them before bed. I cried actual tears of relief.', avatar:'SM' },
+    { name:'Priya K.', handle:'@priya_parentlife', location:'Chicago, IL', stars:5, product:'Teething Twigs', text:'We discovered miswak through family tradition and Twigglies is exactly what we wanted — a modern, safe version our toddler could actually use. The teething relief is real.', avatar:'PK' },
+    { name:'Marcus J.', handle:'@daddyof3', location:'Atlanta, GA', stars:5, product:'Nighttime Calm', text:'Dentist recommended these to us and I was skeptical. Six months later, my 6-year-old has had zero new cavities and actually looks forward to his bedtime chew. Obsessed.', avatar:'MJ' },
+    { name:'Alicia T.', handle:'@aliciat_wellness', location:'Portland, OR', stars:5, product:'Xylitol Blend', text:'As a holistic mama, I\'ve tried EVERY natural oral care product. Twigglies is the first one that actually works AND that my kids won\'t throw at me. 10/10.', avatar:'AT' },
+    { name:'Jennifer L.', handle:'@jlmom2boys', location:'Seattle, WA', stars:5, product:'Twigglies Original', text:'Ordered the variety pack and all three kids have different favorites. My dentist noticed improved gum health at our last visit and was genuinely impressed.', avatar:'JL' },
+    { name:'Aisha R.', handle:'@aishaparents', location:'Houston, TX', stars:5, product:'Teething Twigs', text:'Growing up, miswak was normal in our house. I\'m so glad my babies can have a safe, fun version now. The quality is exceptional — feels premium without being fussy.', avatar:'AR' },
+  ];
+
+  const [active, setActive] = useState(0);
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="reviews">
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:64}}>
+          <div style={{
+            display:'inline-block', background:`${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>Real Families</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em', marginBottom:16}}>
+            What Parents Are <span style={{color:accent}}>Saying</span>
+          </h2>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:4, marginBottom:8}}>
+            {'★★★★★'.split('').map((s,i)=><span key={i} style={{color:'#F5C842',fontSize:24}}>{s}</span>)}
+          </div>
+          <p style={{color: subColor, fontSize:15, fontWeight:500}}>4.9 out of 5 · 2,400+ verified reviews</p>
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))', gap:20}}>
+          {reviews.map((r,i) => (
+            <div key={i} style={{
+              background: cardBg, borderRadius:24, padding:28,
+              border:`1px solid ${darkMode?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'}`,
+              boxShadow: darkMode?'none':'0 2px 12px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{display:'flex', gap:4, marginBottom:16}}>
+                {'★★★★★'.split('').map((s,j)=><span key={j} style={{color:'#F5C842',fontSize:16}}>{s}</span>)}
+              </div>
+              <p style={{fontSize:14, color: textColor, lineHeight:1.7, marginBottom:20, fontStyle:'italic'}}>
+                "{r.text}"
+              </p>
+              <div style={{display:'flex', alignItems:'center', gap:12}}>
+                <div style={{
+                  width:42, height:42, borderRadius:50,
+                  background:`${accent}20`, color: accent,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontFamily:'Fredoka', fontWeight:700, fontSize:14
+                }}>{r.avatar}</div>
+                <div>
+                  <div style={{fontWeight:700, fontSize:14, color: textColor}}>{r.name}</div>
+                  <div style={{fontSize:12, color: subColor}}>{r.location} · {r.product}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── DENTIST QUOTE ────────────────────────────────────────────────────────────
+function DentistQuote({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#141008' : accent;
+  const textColor = 'white';
+
+  return (
+    <section style={{ background: bg, padding:'80px 24px', position:'relative', overflow:'hidden' }}>
+      <div style={{position:'absolute', top:-60, right:-60, width:300, height:300, borderRadius:'50%', background:'rgba(255,255,255,0.08)', pointerEvents:'none'}}/>
+      <div style={{position:'absolute', bottom:-40, left:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none'}}/>
+      <div style={{maxWidth:860, margin:'0 auto', textAlign:'center', position:'relative'}}>
+        <div style={{fontSize:64, opacity:0.3, fontFamily:'Georgia', lineHeight:1, marginBottom:16}}>"</div>
+        <p style={{
+          fontFamily:'Fredoka', fontSize:'clamp(22px,3.5vw,36px)', fontWeight:500,
+          color: textColor, lineHeight:1.5, marginBottom:32, letterSpacing:'-0.01em'
+        }}>
+          In my 18 years of pediatric dentistry, I've rarely seen a product that genuinely excites kids about oral hygiene. Twigglies bridges ancient plant wisdom with modern child development principles. I recommend them to every parent in my practice.
+        </p>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:16}}>
+          <div style={{
+            width:56, height:56, borderRadius:50,
+            background:'rgba(255,255,255,0.2)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:'Fredoka', fontWeight:700, fontSize:18, color:'white'
+          }}>DR</div>
+          <div style={{textAlign:'left'}}>
+            <div style={{color:'white', fontWeight:700, fontSize:16}}>Dr. Rebecca Osei, DMD</div>
+            <div style={{color:'rgba(255,255,255,0.75)', fontSize:13}}>Pediatric Dentist · Children's Oral Health Foundation Board Member</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── SUBSCRIPTION ─────────────────────────────────────────────────────────────
+function Subscribe({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#1A1408' : 'var(--sage-light)';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+  const cardBg = darkMode ? 'rgba(255,255,255,0.07)' : 'white';
+
+  const [billing, setBilling] = useState('monthly');
+  const [selectedPlan, setSelectedPlan] = useState(1);
+
+  const plans = [
+    { name:'Starter', price: billing==='monthly' ? 18 : 15, per:'/ month', sticks:30, ships:'Monthly', desc:'Perfect for 1 child just starting out', color:'#5C8A62' },
+    { name:'Family Pack', price: billing==='monthly' ? 34 : 28, per:'/ month', sticks:90, ships:'Monthly', desc:'Ideal for 2–3 kids. Most popular!', color:'#E8715A', featured:true },
+    { name:'Full Year', price: billing==='monthly' ? 56 : 46, per:'/ month', sticks:180, ships:'Every 2 months', desc:'Stock up & save big. Best value.', color:'#3A7FA0' },
+  ];
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="subscribe">
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:52}}>
+          <div style={{
+            display:'inline-block', background:`${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>Subscribe & Save</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em', marginBottom:16}}>
+            Never Run Out of <span style={{color:accent}}>Twigglies</span>
+          </h2>
+          <p style={{fontSize:17, color: subColor, maxWidth:480, margin:'0 auto 32px', lineHeight:1.6}}>
+            Subscribe & save up to 20%. Cancel anytime, skip a month, swap flavors — total flexibility.
+          </p>
+
+          {/* Billing toggle */}
+          <div style={{
+            display:'inline-flex', background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)',
+            borderRadius:100, padding:4
+          }}>
+            {['monthly','annual'].map(b => (
+              <button key={b} onClick={()=>setBilling(b)} style={{
+                padding:'8px 24px', borderRadius:100, border:'none',
+                background: billing===b ? (darkMode?'rgba(255,255,255,0.15)':'white') : 'transparent',
+                color: billing===b ? textColor : subColor,
+                fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:13,
+                cursor:'pointer', transition:'all 0.2s',
+                boxShadow: billing===b ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'
+              }}>
+                {b==='monthly' ? 'Monthly' : 'Annual (Save 20%)'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, alignItems:'center'}}>
+          {plans.map((plan,i) => (
+            <div key={i} onClick={()=>setSelectedPlan(i)} style={{
+              background: cardBg,
+              borderRadius:28,
+              border:`2px solid ${selectedPlan===i ? plan.color : (darkMode?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.07)')}`,
+              padding: plan.featured ? '36px 28px' : '28px',
+              position:'relative', cursor:'pointer',
+              transform: plan.featured ? 'scale(1.04)' : 'scale(1)',
+              transition:'all 0.2s',
+              boxShadow: plan.featured ? `0 12px 40px ${plan.color}25` : (darkMode?'none':'0 2px 12px rgba(0,0,0,0.04)')
+            }}>
+              {plan.featured && (
+                <div style={{
+                  position:'absolute', top:-12, left:'50%', transform:'translateX(-50%)',
+                  background: plan.color, color:'white', borderRadius:100,
+                  padding:'4px 16px', fontSize:12, fontWeight:700, whiteSpace:'nowrap'
+                }}>Most Popular</div>
+              )}
+              <div style={{marginBottom:8}}>
+                <div style={{fontFamily:'Fredoka', fontSize:24, fontWeight:600, color: textColor}}>{plan.name}</div>
+                <div style={{fontSize:12, color: subColor, marginTop:4}}>{plan.desc}</div>
+              </div>
+              <div style={{margin:'20px 0'}}>
+                <span style={{fontFamily:'Fredoka', fontSize:44, fontWeight:700, color: plan.color}}>${plan.price}</span>
+                <span style={{fontSize:14, color: subColor}}>{plan.per}</span>
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:10, marginBottom:24}}>
+                {[
+                  `${plan.sticks} sticks / shipment`,
+                  `Ships ${plan.ships}`,
+                  'Free shipping always',
+                  'Swap flavors anytime',
+                  'Cancel or pause anytime'
+                ].map(f => (
+                  <div key={f} style={{display:'flex', alignItems:'center', gap:8, fontSize:13, color: textColor}}>
+                    <span style={{color: plan.color, fontWeight:700}}>✓</span>{f}
+                  </div>
+                ))}
+              </div>
+              <button style={{
+                width:'100%', background: selectedPlan===i ? plan.color : 'transparent',
+                color: selectedPlan===i ? 'white' : plan.color,
+                border:`2px solid ${plan.color}`,
+                borderRadius:100, padding:'14px',
+                fontFamily:'Plus Jakarta Sans', fontWeight:700, fontSize:14,
+                cursor:'pointer', transition:'all 0.2s'
+              }}>
+                {selectedPlan===i ? 'Selected ✓' : 'Choose Plan'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── FAQ ──────────────────────────────────────────────────────────────────────
+function FAQ({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#141008' : 'var(--cream)';
+  const textColor = darkMode ? 'white' : 'var(--brown)';
+  const subColor = darkMode ? 'rgba(255,255,255,0.6)' : 'var(--brown-mid)';
+  const borderColor = darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+
+  const faqs = [
+    { q:'Is miswak safe for young children?', a:'Yes — Twigglies are specifically formulated and sized for children ages 1–8. Each batch undergoes safety testing and all materials are food-grade. Our teething variant (Teething Twigs) is designed for 6 months and up with softer, wider heads.' },
+    { q:'Does my child still need to brush with a toothbrush?', a:'Absolutely. Twigglies are designed as a complement to brushing, not a replacement. We recommend them as a between-brush habit helper — after meals, on-the-go, and at bedtime as a wind-down ritual.' },
+    { q:'What flavors are available?', a:'Original Twigglies come in Strawberry, Banana, Watermelon, and Mint-Lite. Teething Twigs are Vanilla and Chamomile. Nighttime Calm is Lavender and Chamomile. Xylitol Blend comes in Bubblegum and Berry.' },
+    { q:'Are there any artificial sweeteners or colors?', a:'Never. Twigglies use only natural flavoring derived from plant extracts. No artificial colors, sweeteners, preservatives, or additives. The ingredient list is short, pronounceable, and parent-approved.' },
+    { q:'What does the subscription include?', a:'Subscribers get 15–20% off every order, free shipping, the ability to skip months or pause, and priority access to new flavors and product launches. Cancel anytime with one click — no hoops.' },
+    { q:'My child has a nut allergy — are these safe?', a:'Twigglies do not contain tree nuts or peanuts and are produced in a dedicated allergen-controlled facility. Always consult with your child\'s pediatrician if you have specific allergy concerns.' },
+  ];
+
+  const [open, setOpen] = useState('all'); // print: all open
+
+  return (
+    <section style={{ background: bg, padding:'100px 24px' }} id="faq">
+      <div style={{maxWidth:780, margin:'0 auto'}}>
+        <div style={{textAlign:'center', marginBottom:60}}>
+          <div style={{
+            display:'inline-block', background:`${accent}15`,
+            color: accent, borderRadius:100, padding:'6px 18px',
+            fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:16
+          }}>Questions</div>
+          <h2 style={{fontFamily:'Fredoka', fontSize:'clamp(32px,5vw,52px)', fontWeight:700, color: textColor, letterSpacing:'-0.02em'}}>
+            Frequently Asked
+          </h2>
+        </div>
+
+        <div style={{display:'flex', flexDirection:'column', gap:2}}>
+          {faqs.map((faq,i) => (
+            <div key={i} style={{
+              border:`1px solid ${borderColor}`,
+              borderRadius:16, overflow:'hidden',
+              marginBottom:8,
+              background: (open===i||open==='all') ? (darkMode?'rgba(255,255,255,0.06)':'var(--sage-light)') : (darkMode?'rgba(255,255,255,0.04)':'white')
+            }}>
+              <button onClick={()=>setOpen(open===i?null:i)} style={{
+                width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'22px 24px', background:'none', border:'none',
+                cursor:'pointer', textAlign:'left'
+              }}>
+                <span style={{fontFamily:'Fredoka', fontSize:18, fontWeight:600, color: textColor, letterSpacing:'-0.01em', lineHeight:1.3}}>{faq.q}</span>
+                <span style={{
+                  width:28, height:28, borderRadius:50,
+                  background: (open===i||open==='all') ? accent : (darkMode?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.07)'),
+                  color: (open===i||open==='all') ? 'white' : textColor,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:16, fontWeight:700, flexShrink:0, marginLeft:16,
+                  transition:'all 0.2s'
+                }}>
+                  {(open===i||open==='all') ? '−' : '+'}
+                </span>
+              </button>
+              {(open===i||open==='all') && (
+                <div style={{padding:'0 24px 22px', fontSize:15, color: subColor, lineHeight:1.75}}>
+                  {faq.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── FOOTER ───────────────────────────────────────────────────────────────────
+function Footer({ theme, darkMode }) {
+  const accent = { sage:'#5C8A62', sky:'#3A7FA0', coral:'#E8715A', honey:'#C4970A' }[theme];
+  const bg = darkMode ? '#0E0A04' : '#2C2416';
+  const textColor = 'rgba(255,255,255,0.85)';
+  const subColor = 'rgba(255,255,255,0.45)';
+
+  return (
+    <footer style={{ background: bg, padding:'72px 24px 40px', color: textColor }}>
+      <div style={{maxWidth:1100, margin:'0 auto'}}>
+        <div style={{display:'flex', gap:60, flexWrap:'wrap', marginBottom:60}}>
+          {/* Brand */}
+          <div style={{flex:'0 0 280px'}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
+              <div style={{width:32, height:32, borderRadius:10, background:accent, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <rect x="7" y="2" width="4" height="14" rx="2" fill="white"/>
+                  <ellipse cx="9" cy="4" rx="4" ry="5" fill="white" opacity="0.7"/>
+                </svg>
+              </div>
+              <span style={{fontFamily:'Fredoka',fontWeight:600,fontSize:22}}>twigglies</span>
+            </div>
+            <p style={{fontSize:14, color: subColor, lineHeight:1.7, marginBottom:20}}>
+              Nature's little toothbrush — reimagined for the modern family. Helping kids build healthy oral habits that last a lifetime.
+            </p>
+            <div style={{display:'flex', gap:12}}>
+              {['𝕏','ig','tt','fb'].map(s=>(
+                <div key={s} style={{
+                  width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.08)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:13, fontWeight:700, cursor:'pointer', transition:'background 0.2s',
+                  color:'rgba(255,255,255,0.6)'
+                }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.15)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.08)'}>
+                  {s}
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Links */}
+          {[
+            { heading:'Products', links:['Twigglies Original','Teething Twigs','Nighttime Calm','Xylitol Blend','Travel Pack','Subscribe & Save'] },
+            { heading:'Company', links:['Our Story','Why Miswak','Ingredients','Press Kit','Careers'] },
+            { heading:'Support', links:['FAQ','Contact Us','Shipping','Returns','Dentist Portal'] },
+          ].map(col => (
+            <div key={col.heading} style={{flex:'0 0 140px'}}>
+              <h4 style={{fontFamily:'Fredoka', fontSize:17, fontWeight:600, marginBottom:18, color:'white'}}>{col.heading}</h4>
+              <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                {col.links.map(l=>(
+                  <a key={l} href="#" style={{
+                    fontSize:14, color: subColor, textDecoration:'none', transition:'color 0.2s'
+                  }}
+                    onMouseEnter={e=>e.target.style.color='white'}
+                    onMouseLeave={e=>e.target.style.color=''}>
+                    {l}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{
+          borderTop:'1px solid rgba(255,255,255,0.1)', paddingTop:28,
+          display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12
+        }}>
+          <p style={{fontSize:13, color: subColor}}>© 2024 Twigglies Inc. All rights reserved. These statements have not been evaluated by the FDA. Not intended to diagnose, treat, cure, or prevent any disease.</p>
+          <div style={{display:'flex', gap:24}}>
+            {['Privacy','Terms','Accessibility'].map(l=>(
+              <a key={l} href="#" style={{fontSize:13,color:subColor,textDecoration:'none'}}
+                onMouseEnter={e=>e.target.style.color='white'}
+                onMouseLeave={e=>e.target.style.color=''}>{l}</a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+
+  useEffect(() => {
+    // Load persisted tweaks
+    try {
+      const saved = JSON.parse(localStorage.getItem('twigglies-tweaks') || '{}');
+      if (Object.keys(saved).length) setTweaks(t => ({...t,...saved}));
+    } catch(e){}
+
+    // Tweaks panel protocol
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') {
+        document.getElementById('tweaks-panel')?.classList.add('open');
+      }
+      if (e.data?.type === '__deactivate_edit_mode') {
+        document.getElementById('tweaks-panel')?.classList.remove('open');
+      }
+    });
+    window.parent.postMessage({type:'__edit_mode_available'},'*');
+
+    // Wire up chip controls
+    document.querySelectorAll('#theme-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#theme-chips .chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+        const val = chip.dataset.theme;
+        setTweaks(t => { const n={...t,theme:val}; persist(n); return n; });
+      });
+    });
+    document.querySelectorAll('#layout-chips .chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#layout-chips .chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+        const val = chip.dataset.layout;
+        setTweaks(t => { const n={...t,layout:val}; persist(n); return n; });
+      });
+    });
+    document.getElementById('mascot-toggle')?.addEventListener('click', () => {
+      setTweaks(t => {
+        const n = {...t, showMascots: !t.showMascots};
+        persist(n);
+        document.getElementById('mascot-track')?.classList.toggle('on', n.showMascots);
+        return n;
+      });
+    });
+    document.getElementById('dark-toggle')?.addEventListener('click', () => {
+      setTweaks(t => {
+        const n = {...t, darkMode: !t.darkMode};
+        persist(n);
+        document.getElementById('dark-track')?.classList.toggle('on', n.darkMode);
+        return n;
+      });
+    });
+  }, []);
+
+  function persist(vals) {
+    localStorage.setItem('twigglies-tweaks', JSON.stringify(vals));
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits: vals},'*');
+  }
+
+  return (
+    <>
+      <Nav darkMode={tweaks.darkMode}/>
+      <Hero theme={tweaks.theme} layout={tweaks.layout} showMascots={tweaks.showMascots} darkMode={tweaks.darkMode}/>
+      <TrustBar theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <WhyParents theme={tweaks.theme} showMascots={tweaks.showMascots} darkMode={tweaks.darkMode}/>
+      <HowItWorks theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <WhyMiswak theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <Products theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <Testimonials theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <DentistQuote theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <Subscribe theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <FAQ theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+      <Footer theme={tweaks.theme} darkMode={tweaks.darkMode}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+// Auto-print after fonts + React render settle
+document.fonts.ready.then(() => {
+  setTimeout(() => { window.print(); }, 800);
+});
+</script>
+
+<style>
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.33%); }
+}
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes scrollCue {
+  0%, 100% { opacity: 0.4; transform: scaleY(1); }
+  50% { opacity: 0.8; transform: scaleY(1.3); }
+}
+
+/* ── PRINT STYLES ──────────────────────────────────────────── */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+
+  html, body { background: #FDFAF5 !important; }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Hide interactive / non-print UI */
+  #tweaks-panel,
+  nav,
+  .scroll-cue { display: none !important; }
+
+  /* Each top-level section gets its own page */
+  body > #root > * > section,
+  body > #root > * > footer,
+  body > #root > * > div[data-trust-bar] {
+    break-before: page;
+    break-inside: avoid;
+  }
+
+  /* Hero: first page — no page break before */
+  section:first-of-type { break-before: auto; }
+
+  /* Trust ticker: freeze the strip, no animation */
+  div[style*="ticker"] > div {
+    animation: none !important;
+    transform: none !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    padding: 0 24px !important;
+  }
+
+  /* Don't clip striped placeholders */
+  div[style*="stripe"] { overflow: visible !important; }
+
+  /* Remove transforms on product cards */
+  div[style*="scale(1.04)"] { transform: none !important; }
+
+  /* FAQ: show all answers */
+  .faq-answer { display: block !important; }
+
+  /* Subscription cards: no scale transform */
+  div[style*="scale"] { transform: none !important; }
+
+  /* Remove box shadows that look bad on print */
+  * { box-shadow: none !important; }
+
+  /* Floating hero badges: hide so they don't overlap */
+  div[style*="floatBadge"] { display: none !important; }
+}
+</style>
+</body>
+</html>

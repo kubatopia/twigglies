@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Branch -->
+  <path d="M16 28 C16 28 15 20 15 14" stroke="#6B4C2A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Main stem up -->
+  <path d="M15 14 C15 14 14 8 16 4" stroke="#6B4C2A" stroke-width="2" stroke-linecap="round"/>
+  <!-- Left twig -->
+  <path d="M15 17 C15 17 10 15 7 12" stroke="#6B4C2A" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Right twig -->
+  <path d="M15.5 13 C15.5 13 20 11 23 9" stroke="#6B4C2A" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Top leaf -->
+  <ellipse cx="16" cy="4" rx="4" ry="5.5" fill="#5C8A62" transform="rotate(-5 16 4)"/>
+  <line x1="16" y1="1" x2="16" y2="8" stroke="#4A7050" stroke-width="0.7" stroke-linecap="round"/>
+  <!-- Left leaf -->
+  <ellipse cx="7" cy="11" rx="3.5" ry="5" fill="#5C8A62" transform="rotate(-50 7 11)"/>
+  <line x1="9.5" y1="8.5" x2="5" y2="13.5" stroke="#4A7050" stroke-width="0.7" stroke-linecap="round"/>
+  <!-- Right leaf -->
+  <ellipse cx="23" cy="8.5" rx="3.5" ry="5" fill="#7AAF80" transform="rotate(40 23 8.5)"/>
+  <line x1="20.5" y1="10.5" x2="25.5" y2="6.5" stroke="#5C8A62" stroke-width="0.7" stroke-linecap="round"/>
+  <!-- Small side leaf on main stem -->
+  <ellipse cx="13.5" cy="20" rx="2.5" ry="4" fill="#7AAF80" transform="rotate(-60 13.5 20)"/>
+</svg>
