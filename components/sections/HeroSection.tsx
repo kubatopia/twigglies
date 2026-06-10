@@ -14,7 +14,7 @@ export default function HeroSection() {
           <div className="max-w-[520px]">
             {/* Pill badge */}
             <span className="inline-flex items-center rounded-full bg-moss-light text-forest text-[12px] px-3 py-1 mb-6">
-              Coming soon ·6
+              Coming soon · 2026
             </span>
 
             <h1
