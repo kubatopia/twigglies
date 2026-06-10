@@ -1,0 +1,118 @@
+name: factory
+
+# Supervised PR factory. Two required checks:
+#   factory-tests  — typecheck + build (the gate the reviewer leans on)
+#   factory-review — Claude reviews the diff against CLAUDE.md's merge policy
+#                    using the vendored pr-reviewer subagent, posts a comment,
+#                    and emits a strict VERDICT line.
+# Actual auto-merge stays OFF until the repo variable FACTORY_AUTOMERGE == 'true'
+# (Phase 3, after a two-week soak with zero escapes). Until then the gate step
+# only reports what it WOULD do and labels escalations.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  factory-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Build first: `next build` generates .next/types (route validators) that
+      # next-env.d.ts references, and fails on type errors itself. Running tsc
+      # afterward then validates the whole graph against the freshly generated
+      # types. Running tsc before build fails on missing .next/types.
+      - name: Build
+        run: pnpm run build
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+  factory-review:
+    needs: factory-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Factory review
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Pass both auth inputs; whichever secret is unset renders empty and
+          # is ignored by the action. Keeps CI working regardless of which one
+          # the org/repo configured.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Use the pr-reviewer subagent to review pull request #${{ github.event.pull_request.number }}
+            for auto-merge against the merge policy in CLAUDE.md.
+
+            Context you can trust:
+            - The factory-tests job (typecheck + build) has already PASSED for this commit.
+              Treat the test signal as GREEN.
+            - Base branch: ${{ github.event.pull_request.base.ref }}
+            - Compare against origin/${{ github.event.pull_request.base.ref }}...HEAD for the diff.
+
+            Post your review as a comment on the PR, and make the FINAL LINE of that
+            comment exactly one of:
+              VERDICT: APPROVE-LOWRISK
+              VERDICT: ESCALATE — <one concrete reason>
+          # Read-only review: no Edit/Write. gh/git only for diff + comment.
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(gh:*),Bash(git:*)"
+            --model claude-sonnet-4-6
+
+      - name: Gate on verdict
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOMERGE: ${{ vars.FACTORY_AUTOMERGE }}
+        run: |
+          set -euo pipefail
+          PR="${{ github.event.pull_request.number }}"
+
+          # Pull the latest PR comment that carries a VERDICT line.
+          VERDICT=$(gh pr view "$PR" --json comments \
+            --jq '[.comments[].body | select(test("VERDICT:"))] | last // ""' \
+            | grep -oE 'VERDICT:[[:space:]]*(APPROVE-LOWRISK|ESCALATE)' \
+            | tail -1 || true)
+
+          echo "Parsed verdict: ${VERDICT:-<none found>}"
+
+          if [ -z "$VERDICT" ]; then
+            echo "::error::No VERDICT line found in PR comments — treating as ESCALATE."
+            VERDICT="VERDICT: ESCALATE"
+          fi
+
+          if echo "$VERDICT" | grep -q 'APPROVE-LOWRISK'; then
+            if [ "${AUTOMERGE:-}" = "true" ]; then
+              echo "APPROVE-LOWRISK and FACTORY_AUTOMERGE=true → queuing squash auto-merge."
+              gh pr merge "$PR" --squash --auto
+            else
+              echo "APPROVE-LOWRISK, but FACTORY_AUTOMERGE is not 'true' → auto-merge held (Phase 2)."
+              echo "Would have run: gh pr merge $PR --squash --auto"
+            fi
+          else
+            echo "ESCALATE → routing to a human."
+            gh label create escalated --color B60205 \
+              --description "Factory routed this PR to a human" 2>/dev/null || true
+            gh pr edit "$PR" --add-label escalated
+          fi
